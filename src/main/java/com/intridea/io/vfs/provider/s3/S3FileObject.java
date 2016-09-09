@@ -53,6 +53,7 @@ import org.jets3t.service.utils.Mimetypes;
 import com.intridea.io.vfs.operations.Acl;
 import com.intridea.io.vfs.operations.IAclGetter;
 
+
 /**
  * Implementation of the virtual S3 file system object using the Jets3t library.
  * Based on Matthias Jugel code
@@ -105,9 +106,8 @@ public class S3FileObject extends AbstractFileObject {
      */
     private Log logger = LogFactory.getLog(S3FileObject.class);
 
-
-    public S3FileObject(AbstractFileName fileName, S3FileSystem fileSystem,
-            S3Service service, S3Bucket bucket) throws FileSystemException {
+    public S3FileObject(AbstractFileName fileName, S3FileSystem fileSystem, S3Service service,
+            S3Bucket bucket) throws FileSystemException {
 
         super(fileName, fileSystem);
         this.service = service;
@@ -174,21 +174,16 @@ public class S3FileObject extends AbstractFileObject {
 
     @Override
     protected void doRename(FileObject newfile) throws Exception {
-    	S3Object newObject = new S3Object(bucket, getS3Key(newfile.getName()));
+        S3Object newObject = new S3Object(bucket, getS3Key(newfile.getName()));
 
-    	service.moveObject(bucket.getName(), object.getKey(), bucket.getName(), newObject, false);
+        service.moveObject(bucket.getName(), object.getKey(), bucket.getName(), newObject, false);
     }
 
     @Override
     protected void doCreateFolder() throws Exception {
         if (logger.isDebugEnabled()) {
-            logger.debug(
-                    "Create new folder in bucket [" +
-                    ((bucket != null) ? bucket.getName() : "null") +
-                    "] with key [" +
-                    ((object != null) ? object.getKey() : "null") +
-                    "]"
-            );
+            logger.debug("Create new folder in bucket [" + ((bucket != null) ? bucket.getName() : "null") +
+                "] with key [" + ((object != null) ? object.getKey() : "null") + "]");
         }
 
         if (object == null) {
@@ -251,8 +246,9 @@ public class S3FileObject extends AbstractFileObject {
                 final String stripPath = children[i].getKey().substring(path.length());
 
                 // Only one slash in the end OR no slash at all
-                if ((stripPath.endsWith(SEPARATOR) && (stripPath.indexOf(SEPARATOR_CHAR) == stripPath.lastIndexOf(SEPARATOR_CHAR))) ||
-                        (stripPath.indexOf(SEPARATOR_CHAR) == (-1))) {
+                if ((stripPath.endsWith(SEPARATOR) &&
+                    (stripPath.indexOf(SEPARATOR_CHAR) == stripPath.lastIndexOf(SEPARATOR_CHAR))) ||
+                    (stripPath.indexOf(SEPARATOR_CHAR) == (-1))) {
                     childrenNames.add(stripPath);
                 }
             }
@@ -272,7 +268,7 @@ public class S3FileObject extends AbstractFileObject {
      * Download S3 object content and save it in temporary file.
      * Do it only if object was not already downloaded.
      */
-    private void downloadOnce () throws FileSystemException {
+    private void downloadOnce() throws FileSystemException {
         if (!downloaded) {
             final String failedMessage = "Failed to download S3 Object %s. %s";
             final String objectPath = getName().getPath();
@@ -351,9 +347,9 @@ public class S3FileObject extends AbstractFileObject {
      * @return
      * @throws S3ServiceException
      */
-    private AccessControlList getS3Acl () throws S3ServiceException {
+    private AccessControlList getS3Acl() throws S3ServiceException {
         String key = getS3Key();
-        return "".equals(key) ? service.getBucketAcl(bucket) :	service.getObjectAcl(bucket, key);
+        return "".equals(key) ? service.getBucketAcl(bucket) : service.getObjectAcl(bucket, key);
     }
 
     /**
@@ -361,7 +357,7 @@ public class S3FileObject extends AbstractFileObject {
      * @param s3Acl
      * @throws Exception
      */
-    private void putS3Acl (AccessControlList s3Acl) throws Exception {
+    private void putS3Acl(AccessControlList s3Acl) throws Exception {
         String key = getS3Key();
         // Determine context. Object or Bucket
         if ("".equals(key)) {
@@ -387,7 +383,7 @@ public class S3FileObject extends AbstractFileObject {
      * @return Current Access control list for a file
      * @throws FileSystemException
      */
-    public Acl getAcl () throws FileSystemException {
+    public Acl getAcl() throws FileSystemException {
         Acl myAcl = new Acl();
         AccessControlList s3Acl;
         try {
@@ -423,7 +419,7 @@ public class S3FileObject extends AbstractFileObject {
 
             // Set permissions for groups
             if (item.getGrantee() instanceof GroupGrantee) {
-                GroupGrantee grantee = (GroupGrantee)item.getGrantee();
+                GroupGrantee grantee = (GroupGrantee) item.getGrantee();
                 if (GroupGrantee.ALL_USERS.equals(grantee)) {
                     // Allow rights to GUEST
                     myAcl.allow(Acl.Group.EVERYONE, rights);
@@ -432,7 +428,7 @@ public class S3FileObject extends AbstractFileObject {
                     myAcl.allow(Acl.Group.AUTHORIZED, rights);
                 }
             } else if (item.getGrantee() instanceof CanonicalGrantee) {
-                CanonicalGrantee grantee = (CanonicalGrantee)item.getGrantee();
+                CanonicalGrantee grantee = (CanonicalGrantee) item.getGrantee();
                 if (grantee.getIdentifier().equals(owner.getId())) {
                     // The same owner and grantee understood as OWNER group
                     myAcl.allow(Acl.Group.OWNER, rights);
@@ -455,7 +451,7 @@ public class S3FileObject extends AbstractFileObject {
      * @param acl
      * @throws FileSystemException
      */
-    public void setAcl (Acl acl) throws FileSystemException {
+    public void setAcl(Acl acl) throws FileSystemException {
 
         // Create empty S3 ACL list
         AccessControlList s3Acl = new AccessControlList();
@@ -546,13 +542,8 @@ public class S3FileObject extends AbstractFileObject {
      * @return
      */
     public String getPrivateUrl() {
-        return String.format(
-                "s3://%s:%s@%s/%s",
-                service.getProviderCredentials().getAccessKey(),
-                service.getProviderCredentials().getSecretKey(),
-                bucket.getName(),
-                getS3Key()
-        );
+        return String.format("s3://%s:%s@%s/%s", service.getProviderCredentials().getAccessKey(),
+                service.getProviderCredentials().getSecretKey(), bucket.getName(), getS3Key());
     }
 
     /**
@@ -567,13 +558,8 @@ public class S3FileObject extends AbstractFileObject {
         cal.add(Calendar.SECOND, expireInSeconds);
 
         try {
-            return service.createSignedGetUrl(
-                    bucket.getName(),
-                    getS3Key(),
-                    cal.getTime(),
-                    false
-            );
-        } catch (S3ServiceException e) {
+            return service.createSignedGetUrl(bucket.getName(), getS3Key(), cal.getTime(), false);
+        } catch (Exception e) {
             throw new FileSystemException(e);
         }
     }
@@ -600,18 +586,20 @@ public class S3FileObject extends AbstractFileObject {
         return hash;
     }
 
-    /* (non-Javadoc)
-     * @see org.apache.commons.vfs.provider.AbstractFileObject#copyFrom(org.apache.commons.vfs.FileObject, org.apache.commons.vfs.FileSelector)
+    /*
+     * (non-Javadoc)
+     * 
+     * @see org.apache.commons.vfs.provider.AbstractFileObject#copyFrom(org.apache.commons.vfs.
+     * FileObject, org.apache.commons.vfs.FileSelector)
      */
     @Override
     public void copyFrom(FileObject file, FileSelector selector) throws FileSystemException {
-        if (!file.exists())
-        {
+        if (!file.exists()) {
             throw new FileSystemException("vfs.provider/copy-missing-file.error", file);
         }
-        if (!isWriteable())
-        {
-            throw new FileSystemException("vfs.provider/copy-read-only.error", new Object[]{file.getType(), file.getName(), this}, null);
+        if (!isWriteable()) {
+            throw new FileSystemException("vfs.provider/copy-read-only.error",
+                new Object[] { file.getType(), file.getName(), this }, null);
         }
 
         // Locate the files to copy across
@@ -625,8 +613,7 @@ public class S3FileObject extends AbstractFileObject {
             final FileObject destFile = resolveFile(relPath, NameScope.DESCENDENT_OR_SELF);
 
             // Clean up the destination file, if necessary
-            if (destFile.exists() && destFile.getType() != srcFile.getType())
-            {
+            if (destFile.exists() && destFile.getType() != srcFile.getType()) {
                 // The destination file exists, and is not of the same type,
                 // so delete it
                 // TODO - add a pluggable policy for deleting and overwriting existing files
@@ -634,20 +621,15 @@ public class S3FileObject extends AbstractFileObject {
             }
 
             // Copy across
-            try
-            {
-                if (srcFile.getType().hasContent())
-                {
+            try {
+                if (srcFile.getType().hasContent()) {
                     doCopy(srcFile, destFile);
-                }
-                else if (srcFile.getType().hasChildren())
-                {
+                } else if (srcFile.getType().hasChildren()) {
                     destFile.createFolder();
                 }
-            }
-            catch (final IOException e)
-            {
-                throw new FileSystemException("vfs.provider/copy-file.error", new Object[]{srcFile, destFile}, e);
+            } catch (final IOException e) {
+                throw new FileSystemException("vfs.provider/copy-file.error",
+                    new Object[] { srcFile, destFile }, e);
             }
         }
     }

@@ -15,9 +15,9 @@ import org.apache.commons.vfs2.UserAuthenticationData;
 import org.apache.commons.vfs2.provider.AbstractOriginatingFileProvider;
 import org.apache.commons.vfs2.util.UserAuthenticatorUtils;
 import org.jets3t.service.S3Service;
-import org.jets3t.service.S3ServiceException;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
 import org.jets3t.service.security.AWSCredentials;
+
 
 /**
  * An S3 file provider. Create an S3 file system out of an S3 file name. Also
@@ -28,27 +28,19 @@ import org.jets3t.service.security.AWSCredentials;
  */
 public class S3FileProvider extends AbstractOriginatingFileProvider {
 
-    public final static Collection<Capability> capabilities = Collections.unmodifiableCollection(Arrays.asList(
-        Capability.CREATE,
-        Capability.DELETE,
-        Capability.RENAME,
-        Capability.GET_TYPE,
-        Capability.GET_LAST_MODIFIED,
-        Capability.SET_LAST_MODIFIED_FILE,
-        Capability.SET_LAST_MODIFIED_FOLDER,
-        Capability.LIST_CHILDREN,
-        Capability.READ_CONTENT,
-        Capability.URI,
-        Capability.WRITE_CONTENT
-        //Capability.APPEND_CONTENT
+    public final static Collection<Capability> capabilities = Collections
+            .unmodifiableCollection(Arrays.asList(Capability.CREATE, Capability.DELETE, Capability.RENAME,
+                    Capability.GET_TYPE, Capability.GET_LAST_MODIFIED, Capability.SET_LAST_MODIFIED_FILE,
+                    Capability.SET_LAST_MODIFIED_FOLDER, Capability.LIST_CHILDREN, Capability.READ_CONTENT,
+                    Capability.URI, Capability.WRITE_CONTENT
+    //Capability.APPEND_CONTENT
     ));
 
     /**
      * Auth data types necessary for AWS authentification.
      */
     public final static UserAuthenticationData.Type[] AUTHENTICATOR_TYPES = new UserAuthenticationData.Type[] {
-        UserAuthenticationData.USERNAME, UserAuthenticationData.PASSWORD
-    };
+            UserAuthenticationData.USERNAME, UserAuthenticationData.PASSWORD };
 
     /**
      * Default options for S3 file system.
@@ -60,7 +52,7 @@ public class S3FileProvider extends AbstractOriginatingFileProvider {
      * Use it to set AWS auth credentials.
      * @return
      */
-    public static FileSystemOptions getDefaultFileSystemOptions () {
+    public static FileSystemOptions getDefaultFileSystemOptions() {
         return defaultOptions;
     }
 
@@ -88,11 +80,11 @@ public class S3FileProvider extends AbstractOriginatingFileProvider {
      * @throws FileSystemException if the file system cannot be created
      */
     @Override
-    protected FileSystem doCreateFileSystem(FileName fileName,
-            FileSystemOptions fileSystemOptions) throws FileSystemException {
+    protected FileSystem doCreateFileSystem(FileName fileName, FileSystemOptions fileSystemOptions)
+            throws FileSystemException {
 
-        FileSystemOptions fsOptions = fileSystemOptions != null ?
-                fileSystemOptions : getDefaultFileSystemOptions();
+        FileSystemOptions fsOptions = fileSystemOptions != null ? fileSystemOptions
+                : getDefaultFileSystemOptions();
 
         // Initialize once S3 service.
         if (service == null) {
@@ -104,8 +96,10 @@ public class S3FileProvider extends AbstractOriginatingFileProvider {
                 logger.info("Initialize Amazon S3 service client ...");
 
                 // Fetch AWS key-id and secret key from authData
-                String keyId = UserAuthenticatorUtils.toString(UserAuthenticatorUtils.getData(authData, UserAuthenticationData.USERNAME, null));
-                String key = UserAuthenticatorUtils.toString(UserAuthenticatorUtils.getData(authData, UserAuthenticationData.PASSWORD, null));
+                String keyId = UserAuthenticatorUtils.toString(
+                        UserAuthenticatorUtils.getData(authData, UserAuthenticationData.USERNAME, null));
+                String key = UserAuthenticatorUtils.toString(
+                        UserAuthenticatorUtils.getData(authData, UserAuthenticationData.PASSWORD, null));
                 if (keyId.length() + key.length() == 0) {
                     throw new FileSystemException("Empty AWS credentials");
                 }
@@ -115,12 +109,11 @@ public class S3FileProvider extends AbstractOriginatingFileProvider {
                 service = new RestS3Service(awsCredentials);
                 logger.info("... Ok");
 
-            } catch (S3ServiceException e) {
+            } catch (Exception e) {
                 logger.error(String.format("Failed to initialize Amazon S3 service client. Reason: %s",
-                        e.getS3ErrorMessage()), e);
+                        e.getMessage()), e);
                 throw new FileSystemException(e);
-            }
-            finally {
+            } finally {
                 UserAuthenticatorUtils.cleanup(authData);
             }
         }

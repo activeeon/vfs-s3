@@ -1,0 +1,67 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+
+    dependencies {
+        }
+}
+
+group 'activeeon'
+version projectVersion
+
+apply plugin: 'java'
+apply plugin: 'maven'
+
+configurations {
+    integrationTestCompile.extendsFrom testCompile
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+compileJava {
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
+}
+
+repositories {
+    jcenter()
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            snapshotRepository(url: "http://repository.activeeon.com/content/repositories/snapshots/") {
+                authentication(userName: "${System.getProperty('nexusUsername')}",
+                        password: "${System.getProperty('nexusPassword')}")
+            }
+            repository(url: "http://repository.activeeon.com/content/repositories/releases/") {
+                authentication(userName: "${System.getProperty('nexusUsername')}",
+                        password: "${System.getProperty('nexusPassword')}")
+            }
+        }
+    }
+}
+
+defaultTasks 'clean', 'jar'
+
+
+dependencies {
+
+    compile 'org.apache.commons:commons-vfs2:2.0'
+    compile 'commons-lang:commons-lang:2.5'
+    compile 'net.java.dev.jets3t:jets3t:0.9.0'
+    compile 'org.springframework:spring-beans:3.0.7.RELEASE'
+    testCompile 'org.testng:testng:5.14.2'
+    testCompile 'commons-io:commons-io:1.4'
+
+   
+}
+
+jar {
+    from {
+        configurations.compile
+                .findAll { !it.name.toLowerCase().contains("slf4j") }
+                .collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}

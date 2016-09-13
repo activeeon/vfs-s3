@@ -1,0 +1,69 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+
+    dependencies {
+        }
+}
+
+group 'activeeon'
+version projectVersion
+
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'eclipse'
+
+configurations {
+    integrationTestCompile.extendsFrom testCompile
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+compileJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+
+repositories {
+    jcenter()
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            snapshotRepository(url: "http://repository.activeeon.com/content/repositories/snapshots/") {
+                authentication(userName: "${System.getProperty('nexusUsername')}",
+                        password: "${System.getProperty('nexusPassword')}")
+            }
+            repository(url: "http://repository.activeeon.com/content/repositories/releases/") {
+                authentication(userName: "${System.getProperty('nexusUsername')}",
+                        password: "${System.getProperty('nexusPassword')}")
+            }
+        }
+    }
+}
+
+defaultTasks 'clean', 'jar'
+
+
+dependencies {
+
+    compile 'org.apache.commons:commons-vfs2:2.1.1744488.1'
+    compile 'com.amazonaws:aws-java-sdk-s3:1.11.22'
+    compile 'org.springframework:spring-beans:4.2.5.RELEASE'
+    testCompile 'org.testng:testng:6.9.10'
+    testCompile 'com.google.inject:guice:4.0'
+	testCompile 'commons-io:commons-io:1.4'
+    testCompile 'ch.qos.logback:logback-classic:1.1.7'
+    testCompile 'commons-io:commons-io:1.4'
+}
+
+jar {
+    from {
+        configurations.compile
+                .findAll { !it.name.toLowerCase().contains("slf4j") }
+                .collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+

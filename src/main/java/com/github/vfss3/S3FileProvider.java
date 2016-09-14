@@ -1,20 +1,19 @@
 package com.github.vfss3;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Region;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.commons.vfs2.*;
+import org.apache.commons.vfs2.Capability;
+import org.apache.commons.vfs2.FileName;
+import org.apache.commons.vfs2.FileSystem;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.FileSystemOptions;
 import org.apache.commons.vfs2.provider.AbstractOriginatingFileProvider;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Optional;
 
 /**
  * An S3 file provider. Create an S3 file system out of an S3 file name. Also
@@ -55,23 +54,26 @@ public class S3FileProvider extends AbstractOriginatingFileProvider {
             FileName fileName, FileSystemOptions fileSystemOptions
     ) throws FileSystemException {
         final S3FileSystemOptions options = new S3FileSystemOptions(fileSystemOptions);
-
-        AmazonS3Client service = options.getS3Client().orElseGet(() -> {
+        AmazonS3Client service = options.getS3Client();
+        if (service == null) {
             if (DEFAULT_CLIENT != null) {
-                return DEFAULT_CLIENT;
+                service = DEFAULT_CLIENT;
             } else {
                 ClientConfiguration clientConfiguration = options.getClientConfiguration();
                 AmazonS3Client s3 = new AmazonS3Client(new DefaultAWSCredentialsProviderChain(), clientConfiguration);
 
-                options.getRegion().ifPresent(r -> s3.setRegion(r.toAWSRegion()));
+                Region region = options.getRegion();
+                if (region != null) {
+                    s3.setRegion(region.toAWSRegion());
+                }
 
-                return s3;
+                service = s3;
             }
-        });
+        }
 
         S3FileSystem fileSystem = new S3FileSystem((S3FileName) fileName, service, options);
 
-        if (options.getS3Client().isPresent()) {
+        if (options.getS3Client() != null) {
             fileSystem.setShutdownServiceOnClose(true);
         }
 

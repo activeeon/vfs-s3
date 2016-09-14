@@ -14,7 +14,6 @@ import org.apache.commons.vfs2.provider.AbstractFileName;
 import org.apache.commons.vfs2.provider.AbstractFileSystem;
 
 import java.util.Collection;
-import java.util.Optional;
 
 /**
  * An S3 file system.
@@ -71,7 +70,7 @@ public class S3FileSystem extends AbstractFileSystem {
         return bucket;
     }
 
-    protected Optional<Region> getRegion() {
+    protected Region getRegion() {
         return (new S3FileSystemOptions(getFileSystemOptions())).getRegion();
     }
 

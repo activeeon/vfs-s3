@@ -64,7 +64,7 @@ public class S3FileSystemConfigBuilder extends FileSystemConfigBuilder {
      * @return The S3 region to connect to (if null, then US Standard)
      */
     public Region getRegion(FileSystemOptions opts) {
-        return new S3FileSystemOptions(opts, false).getRegion().orElse(null);
+        return new S3FileSystemOptions(opts, false).getRegion();
     }
 
     /**
@@ -146,6 +146,6 @@ public class S3FileSystemConfigBuilder extends FileSystemConfigBuilder {
      * @return
      */
     public AmazonS3Client getAmazonS3Client(FileSystemOptions opts) {
-        return new S3FileSystemOptions(opts, false).getS3Client().orElse(null);
+        return new S3FileSystemOptions(opts, false).getS3Client();
     }
 }

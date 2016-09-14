@@ -7,11 +7,8 @@ import org.apache.commons.vfs2.FileSystem;
 import org.apache.commons.vfs2.FileSystemConfigBuilder;
 import org.apache.commons.vfs2.FileSystemOptions;
 
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
-import static java.util.Optional.ofNullable;
 
 /**
  * Wrapper aroung FileSystemOptions for storing and retrieving various options. It can't be immutable because it use
@@ -93,12 +90,12 @@ public class S3FileSystemOptions {
     /**
      * @return The S3 region to connect to (if null, then US Standard)
      */
-    public Optional<Region> getRegion() {
+    public Region getRegion() {
         final S3FileSystemConfigBuilder builder = new S3FileSystemConfigBuilder();
 
         String r = builder.getStringOption(options, REGION, null);
 
-        return (r == null) ? empty() : Optional.of(Region.fromValue(r));
+        return (r == null) ? null : Region.fromValue(r);
     }
 
     /**
@@ -173,10 +170,10 @@ public class S3FileSystemOptions {
      *
      * @return
      */
-    public Optional<AmazonS3Client> getS3Client() {
+    public AmazonS3Client getS3Client() {
         final S3FileSystemConfigBuilder builder = new S3FileSystemConfigBuilder();
 
-        return ofNullable((AmazonS3Client) builder.getOption(options, S3_CLIENT));
+        return (AmazonS3Client) builder.getOption(options, S3_CLIENT);
     }
 
     /**

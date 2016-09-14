@@ -21,11 +21,12 @@ configurations {
 }
 
 compileJava {
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
 }
 
 repositories {
+    maven { url 'http://repository.activeeon.com/content/groups/proactive/' }
     jcenter()
 }
 
@@ -49,7 +50,7 @@ defaultTasks 'clean', 'jar'
 
 dependencies {
 
-    compile 'org.apache.commons:commons-vfs2:2.1.1744488.1'
+    compile 'org.apache.commons:commons-vfs2:2.1.1744488.2'
     compile 'com.amazonaws:aws-java-sdk-s3:1.11.22'
     compile 'org.springframework:spring-beans:4.2.5.RELEASE'
     testCompile 'org.testng:testng:6.9.10'

@@ -93,10 +93,18 @@ public class S3FileObject extends AbstractFileObject {
 
     @Override
     protected void doAttach() {
+
         if (!attached) {
+            String candidateKey = getS3Key();
+            if ("".equals(candidateKey)) {
+                mimicFolderExistence(candidateKey, null);
+                logger.info("Attach root folder to S3 Object [" + objectKey + "]");
+                attached = true;
+                return;
+            }
+
             try {
                 // Do we have file with name?
-                String candidateKey = getS3Key();
                 objectMetadata = getService().getObjectMetadata(getBucket().getName(), candidateKey);
                 objectKey = candidateKey;
 
@@ -110,10 +118,9 @@ public class S3FileObject extends AbstractFileObject {
             catch (AmazonClientException e) {
                 // We are attempting to attach to the root bucket
             }
-
             try {
                 // Do we have folder with that name?
-                String candidateKey = getS3Key() + FileName.SEPARATOR;
+                candidateKey = getS3Key() + FileName.SEPARATOR;
                 objectMetadata = getService().getObjectMetadata(getBucket().getName(), candidateKey);
                 objectKey = candidateKey;
                 logger.info("Attach folder to S3 Object [" + objectKey + "]");
@@ -122,6 +129,25 @@ public class S3FileObject extends AbstractFileObject {
                 return;
             } catch (AmazonServiceException e) {
                 // No, we don't
+            }
+
+            try {
+                // check if the folder exists but has no metadata
+                candidateKey = getS3Key();
+                final ListObjectsRequest loReq = new ListObjectsRequest();
+                loReq.setBucketName(getBucket().getName());
+                loReq.setDelimiter("/");
+                loReq.setPrefix(candidateKey);
+                loReq.setMaxKeys(1);
+                ObjectListing listing = getService().listObjects(loReq);
+                if (listing.getCommonPrefixes().contains(candidateKey + FileName.SEPARATOR)) {
+                    mimicFolderExistence(candidateKey + FileName.SEPARATOR, null);
+                    logger.info("Attach folder with no metadata to S3 Object [" + objectKey + "]");
+                    attached = true;
+                    return;
+                }
+            } catch (AmazonClientException e) {
+                // the folder really does not exist
             }
 
             // Create a new
@@ -136,6 +162,19 @@ public class S3FileObject extends AbstractFileObject {
                 attached = true;
             }
         }
+    }
+
+    private void mimicFolderExistence(String candidateKey, Date date) {
+        objectMetadata = new ObjectMetadata();
+        objectMetadata.setContentLength(0);
+        if (getServerSideEncryption()) {
+            objectMetadata.setSSEAlgorithm(AES_256_SERVER_SIDE_ENCRYPTION);
+        }
+        if (date != null) {
+            objectMetadata.setLastModified(date);
+        }
+        objectMetadata.setContentType(MIMETYPE_JETS3T_DIRECTORY);
+        objectKey = candidateKey;
     }
 
     @Override
@@ -232,15 +271,13 @@ public class S3FileObject extends AbstractFileObject {
     @Override
     protected String[] doListChildren() throws Exception {
         String path = objectKey;
-        // make sure we add a '/' slash at the end to find children
-        if ((!"".equals(path)) && (!path.endsWith(SEPARATOR))) {
-            path = path + "/";
-        }
+
+        path = getPathWithTrailingSlash(path);
 
         final ListObjectsRequest loReq = new ListObjectsRequest();
         loReq.setBucketName(getBucket().getName());
         loReq.setDelimiter("/");
-        loReq.setPrefix(path);
+        loReq.setPrefix(getPathForListObjects(path));
 
         ObjectListing listing = getService().listObjects(loReq);
         final List<S3ObjectSummary> summaries = new ArrayList<S3ObjectSummary>(listing.getObjectSummaries());
@@ -255,6 +292,7 @@ public class S3FileObject extends AbstractFileObject {
 
         // add the prefixes (non-empty subdirs) first
         for (String commonPrefix : commonPrefixes) {
+
             // strip path from name (leave only base name)
             final String stripPath = commonPrefix.substring(path.length());
             childrenNames.add(stripPath);
@@ -286,18 +324,17 @@ public class S3FileObject extends AbstractFileObject {
     {
         String path = objectKey;
         // make sure we add a '/' slash at the end to find children
-        if ((!"".equals(path)) && (!path.endsWith(SEPARATOR))) {
-            path = path + "/";
-        }
+        path = getPathWithTrailingSlash(path);
 
         final ListObjectsRequest loReq = new ListObjectsRequest();
         loReq.setBucketName(getBucket().getName());
         loReq.setDelimiter("/");
-        loReq.setPrefix(path);
+        loReq.setPrefix(getPathForListObjects(path));
 
         ObjectListing listing = getService().listObjects(loReq);
         final List<S3ObjectSummary> summaries = new ArrayList<S3ObjectSummary>(listing.getObjectSummaries());
         final Set<String> commonPrefixes = new TreeSet<String>(listing.getCommonPrefixes());
+
         while (listing.isTruncated()) {
             listing = getService().listNextBatchOfObjects(listing);
             summaries.addAll(listing.getObjectSummaries());
@@ -308,6 +345,7 @@ public class S3FileObject extends AbstractFileObject {
 
         // add the prefixes (non-empty subdirs) first
         for (String commonPrefix : commonPrefixes) {
+
             // strip path from name (leave only base name)
             String stripPath = commonPrefix.substring(path.length());
             FileObject childObject = resolveFile(stripPath, (stripPath.equals("/")) ? FILE_SYSTEM : CHILD);
@@ -339,6 +377,20 @@ public class S3FileObject extends AbstractFileObject {
         }
 
         return resolvedChildren.toArray(new FileObject[resolvedChildren.size()]);
+    }
+
+    private String getPathWithTrailingSlash(String path) {
+        if (!"".equals(path) && !path.endsWith(SEPARATOR)) {
+            return path + "/";
+        }
+        return path;
+    }
+
+    private String getPathForListObjects(String path) {
+        if ("".equals(path)) {
+            return null;
+        }
+        return path;
     }
 
     @Override
@@ -452,8 +504,8 @@ public class S3FileObject extends AbstractFileObject {
     private String getS3Key(FileName fileName) {
         String path = fileName.getPath();
 
-        if ("".equals(path)) {
-            return path;
+        if ("".equals(path) || ".".equals(path) || "/".equals(path)) {
+            return "";
         } else {
             return path.substring(1);
         }

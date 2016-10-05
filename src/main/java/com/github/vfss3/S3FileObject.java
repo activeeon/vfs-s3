@@ -110,10 +110,10 @@ public class S3FileObject extends AbstractFileObject {
             catch (AmazonClientException e) {
                 // We are attempting to attach to the root bucket
             }
-
+            String candidateKey = null;
             try {
                 // Do we have folder with that name?
-                String candidateKey = getS3Key() + FileName.SEPARATOR;
+                candidateKey = getS3Key() + FileName.SEPARATOR;
                 objectMetadata = getService().getObjectMetadata(getBucket().getName(), candidateKey);
                 objectKey = candidateKey;
                 logger.info("Attach folder to S3 Object [" + objectKey + "]");
@@ -122,6 +122,30 @@ public class S3FileObject extends AbstractFileObject {
                 return;
             } catch (AmazonServiceException e) {
                 // No, we don't
+            }
+
+            // check if the key is part of the already known folders (accessing metadata of folders with more than 1000 files will raise an exception)
+            if (getKnownFolders().contains(candidateKey)) {
+                objectMetadata = new ObjectMetadata();
+                objectMetadata.setContentLength(0);
+                if (getServerSideEncryption()) {
+                    objectMetadata.setSSEAlgorithm(AES_256_SERVER_SIDE_ENCRYPTION);
+                }
+                FileObject parent = null;
+                try {
+                    parent = getParent();
+
+                    if (parent != null) {
+                        objectMetadata.setLastModified(new Date(parent.getContent().getLastModifiedTime()));
+                    }
+                } catch (FileSystemException e) {
+                    logger.warn("", e);
+                }
+                objectKey = candidateKey;
+                logger.info("Attach folder (> 1000 files) to S3 Object [" + objectKey + "]");
+
+                attached = true;
+                return;
             }
 
             // Create a new
@@ -243,6 +267,7 @@ public class S3FileObject extends AbstractFileObject {
         loReq.setPrefix(path);
 
         ObjectListing listing = getService().listObjects(loReq);
+        Set<String> knownFolders = getKnownFolders();
         final List<S3ObjectSummary> summaries = new ArrayList<S3ObjectSummary>(listing.getObjectSummaries());
         final Set<String> commonPrefixes = new TreeSet<String>(listing.getCommonPrefixes());
         while (listing.isTruncated()) {
@@ -255,6 +280,9 @@ public class S3FileObject extends AbstractFileObject {
 
         // add the prefixes (non-empty subdirs) first
         for (String commonPrefix : commonPrefixes) {
+            // add the found folders in known set
+            knownFolders.add(commonPrefix);
+
             // strip path from name (leave only base name)
             final String stripPath = commonPrefix.substring(path.length());
             childrenNames.add(stripPath);
@@ -296,8 +324,10 @@ public class S3FileObject extends AbstractFileObject {
         loReq.setPrefix(path);
 
         ObjectListing listing = getService().listObjects(loReq);
+        Set<String> knownFolders = getKnownFolders();
         final List<S3ObjectSummary> summaries = new ArrayList<S3ObjectSummary>(listing.getObjectSummaries());
         final Set<String> commonPrefixes = new TreeSet<String>(listing.getCommonPrefixes());
+
         while (listing.isTruncated()) {
             listing = getService().listNextBatchOfObjects(listing);
             summaries.addAll(listing.getObjectSummaries());
@@ -308,6 +338,10 @@ public class S3FileObject extends AbstractFileObject {
 
         // add the prefixes (non-empty subdirs) first
         for (String commonPrefix : commonPrefixes) {
+
+            // add the found folders in known set
+            knownFolders.add(commonPrefix);
+
             // strip path from name (leave only base name)
             String stripPath = commonPrefix.substring(path.length());
             FileObject childObject = resolveFile(stripPath, (stripPath.equals("/")) ? FILE_SYSTEM : CHILD);
@@ -781,6 +815,10 @@ public class S3FileObject extends AbstractFileObject {
     /** Amazon S3 bucket */
     protected Bucket getBucket() {
         return ((S3FileSystem)getFileSystem()).getBucket();
+    }
+
+    protected Set<String> getKnownFolders() {
+        return ((S3FileSystem) getFileSystem()).getKnownFolders();
     }
 
     /**

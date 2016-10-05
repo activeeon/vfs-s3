@@ -14,6 +14,8 @@ import org.apache.commons.vfs2.provider.AbstractFileName;
 import org.apache.commons.vfs2.provider.AbstractFileSystem;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * An S3 file system.
@@ -28,6 +30,8 @@ public class S3FileSystem extends AbstractFileSystem {
 
     private final AmazonS3Client service;
     private final Bucket bucket;
+
+    private final Set<String> knownFolders = new HashSet<>();
 
     private boolean shutdownServiceOnClose = false;
 
@@ -68,6 +72,10 @@ public class S3FileSystem extends AbstractFileSystem {
 
     protected Bucket getBucket() {
         return bucket;
+    }
+
+    protected Set<String> getKnownFolders() {
+        return knownFolders;
     }
 
     protected Region getRegion() {

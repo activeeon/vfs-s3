@@ -93,10 +93,19 @@ public class S3FileObject extends AbstractFileObject {
 
     @Override
     protected void doAttach() {
+
+        String candidateKey = getS3Key();
         if (!attached) {
+
+            if ("".equals(candidateKey)) {
+                mimicFolderExistence(candidateKey);
+                logger.info("Attach root folder to S3 Object [" + objectKey + "]");
+                attached = true;
+                return;
+            }
+
             try {
                 // Do we have file with name?
-                String candidateKey = getS3Key();
                 objectMetadata = getService().getObjectMetadata(getBucket().getName(), candidateKey);
                 objectKey = candidateKey;
 
@@ -110,10 +119,9 @@ public class S3FileObject extends AbstractFileObject {
             catch (AmazonClientException e) {
                 // We are attempting to attach to the root bucket
             }
-            String candidateKey = null;
             try {
                 // Do we have folder with that name?
-                candidateKey = getS3Key() + FileName.SEPARATOR;
+                candidateKey = candidateKey + FileName.SEPARATOR;
                 objectMetadata = getService().getObjectMetadata(getBucket().getName(), candidateKey);
                 objectKey = candidateKey;
                 logger.info("Attach folder to S3 Object [" + objectKey + "]");
@@ -125,25 +133,28 @@ public class S3FileObject extends AbstractFileObject {
             }
 
             // check if the key is part of the already known folders (accessing metadata of folders with more than 1000 files will raise an exception)
+            // otherwise manually do a listFiles call to verify if the folder exist
+
+            boolean folderExistsButHasManyFiles = false;
+
             if (getKnownFolders().contains(candidateKey)) {
-                objectMetadata = new ObjectMetadata();
-                objectMetadata.setContentLength(0);
-                if (getServerSideEncryption()) {
-                    objectMetadata.setSSEAlgorithm(AES_256_SERVER_SIDE_ENCRYPTION);
-                }
-                FileObject parent = null;
+                folderExistsButHasManyFiles = true;
+            } else {
                 try {
-                    parent = getParent();
-
-                    if (parent != null) {
-                        objectMetadata.setLastModified(new Date(parent.getContent().getLastModifiedTime()));
-                    }
-                } catch (FileSystemException e) {
-                    logger.warn("", e);
+                    final ListObjectsRequest loReq = new ListObjectsRequest();
+                    loReq.setBucketName(getBucket().getName());
+                    loReq.setDelimiter("/");
+                    loReq.setPrefix(candidateKey);
+                    ObjectListing listing = getService().listObjects(loReq);
+                    folderExistsButHasManyFiles = (listing.getObjectSummaries().size() > 0);
+                } catch (AmazonClientException e) {
+                    // the folder really does not exist
                 }
-                objectKey = candidateKey;
-                logger.info("Attach folder (> 1000 files) to S3 Object [" + objectKey + "]");
+            }
 
+            if (folderExistsButHasManyFiles) {
+                mimicFolderExistence(candidateKey);
+                logger.info("Attach folder (> 1000 files) to S3 Object [" + objectKey + "]");
                 attached = true;
                 return;
             }
@@ -160,6 +171,25 @@ public class S3FileObject extends AbstractFileObject {
                 attached = true;
             }
         }
+    }
+
+    private void mimicFolderExistence(String candidateKey) {
+        objectMetadata = new ObjectMetadata();
+        objectMetadata.setContentLength(0);
+        if (getServerSideEncryption()) {
+            objectMetadata.setSSEAlgorithm(AES_256_SERVER_SIDE_ENCRYPTION);
+        }
+        FileObject parent = null;
+        try {
+            parent = getParent();
+
+            if (parent != null) {
+                objectMetadata.setLastModified(new Date(parent.getContent().getLastModifiedTime()));
+            }
+        } catch (FileSystemException e) {
+            logger.warn("", e);
+        }
+        objectKey = candidateKey;
     }
 
     @Override
@@ -256,15 +286,13 @@ public class S3FileObject extends AbstractFileObject {
     @Override
     protected String[] doListChildren() throws Exception {
         String path = objectKey;
-        // make sure we add a '/' slash at the end to find children
-        if ((!"".equals(path)) && (!path.endsWith(SEPARATOR))) {
-            path = path + "/";
-        }
+
+        path = getPathWithTrailingSlash(path);
 
         final ListObjectsRequest loReq = new ListObjectsRequest();
         loReq.setBucketName(getBucket().getName());
         loReq.setDelimiter("/");
-        loReq.setPrefix(path);
+        loReq.setPrefix(getPathForListObjects(path));
 
         ObjectListing listing = getService().listObjects(loReq);
         Set<String> knownFolders = getKnownFolders();
@@ -314,14 +342,12 @@ public class S3FileObject extends AbstractFileObject {
     {
         String path = objectKey;
         // make sure we add a '/' slash at the end to find children
-        if ((!"".equals(path)) && (!path.endsWith(SEPARATOR))) {
-            path = path + "/";
-        }
+        path = getPathWithTrailingSlash(path);
 
         final ListObjectsRequest loReq = new ListObjectsRequest();
         loReq.setBucketName(getBucket().getName());
         loReq.setDelimiter("/");
-        loReq.setPrefix(path);
+        loReq.setPrefix(getPathForListObjects(path));
 
         ObjectListing listing = getService().listObjects(loReq);
         Set<String> knownFolders = getKnownFolders();
@@ -373,6 +399,20 @@ public class S3FileObject extends AbstractFileObject {
         }
 
         return resolvedChildren.toArray(new FileObject[resolvedChildren.size()]);
+    }
+
+    private String getPathWithTrailingSlash(String path) {
+        if (!"".equals(path) && !path.endsWith(SEPARATOR)) {
+            return path + "/";
+        }
+        return path;
+    }
+
+    private String getPathForListObjects(String path) {
+        if ("".equals(path)) {
+            return null;
+        }
+        return path;
     }
 
     @Override
@@ -486,8 +526,8 @@ public class S3FileObject extends AbstractFileObject {
     private String getS3Key(FileName fileName) {
         String path = fileName.getPath();
 
-        if ("".equals(path)) {
-            return path;
+        if ("".equals(path) || ".".equals(path) || "/".equals(path)) {
+            return "";
         } else {
             return path.substring(1);
         }

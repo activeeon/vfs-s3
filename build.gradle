@@ -50,8 +50,10 @@ defaultTasks 'clean', 'jar'
 dependencies {
 
     compile 'org.apache.commons:commons-vfs2:2.1.1744488.1'
-    compile("com.amazonaws:aws-java-sdk-s3:1.11.22"){
+    compile("com.amazonaws:aws-java-sdk-s3:1.11.297"){
         exclude module: "httpcore"
+        exclude group: "com.fasterxml.jackson.core"
+        exclude group: "com.fasterxml.jackson.dataformat"
     }
     compile 'org.springframework:spring-beans:4.2.5.RELEASE'
     testCompile 'org.testng:testng:6.9.10'
